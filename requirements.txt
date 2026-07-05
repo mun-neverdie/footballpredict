@@ -1,0 +1,7 @@
+chromadb
+sentence-transformers
+transformers
+torch
+beautifulsoup4
+requests
+openai

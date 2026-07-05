@@ -1,0 +1,22 @@
+# 模型文件 (~1.5GB)
+models/
+
+# 向量库
+vector_store/
+
+# 缓存 & 中间产物
+crawl_cache.json
+kb_entries.json
+failed_entries.json
+
+# Python
+__pycache__/
+*.pyc
+
+# 环境
+.env
+.venv/
+.vscode/
+
+# 用户文件
+results.md
