@@ -5,3 +5,4 @@ torch
 beautifulsoup4
 requests
 openai
+streamlit

@@ -125,15 +125,26 @@ def call_llm(prompt):
 
 
 # ============================================================
-# 初始化
+# 懒初始化 (被 predict() 或 streamlit_app 首次调用时加载)
 # ============================================================
 
-print("加载向量库和 embedding 模型...")
-client = chromadb.PersistentClient(path=VECTOR_DIR)
-collection = client.get_collection(COLLECTION_NAME)
-model = SentenceTransformer(EMBEDDING_MODEL)
-print(f"  Collection: {COLLECTION_NAME} ({collection.count()} 条)")
-print(f"  Embedding:  {EMBEDDING_MODEL} ({model.get_sentence_embedding_dimension()}d)\n")
+_rag_initialized = False
+_collection = None
+_model = None
+
+
+def _init_rag():
+    """首次调用时加载向量库和 embedding 模型"""
+    global _rag_initialized, _collection, _model
+    if _rag_initialized:
+        return
+    print("加载向量库和 embedding 模型...")
+    client = chromadb.PersistentClient(path=VECTOR_DIR)
+    _collection = client.get_collection(COLLECTION_NAME)
+    _model = SentenceTransformer(EMBEDDING_MODEL)
+    print(f"  Collection: {COLLECTION_NAME} ({_collection.count()} 条)")
+    print(f"  Embedding:  {EMBEDDING_MODEL} ({_model.get_sentence_embedding_dimension()}d)\n")
+    _rag_initialized = True
 
 
 # ============================================================
@@ -145,7 +156,7 @@ def exact_lookup(doc_ids):
     if not doc_ids:
         return {}
     try:
-        results = collection.get(ids=doc_ids)
+        results = _collection.get(ids=doc_ids)
         return dict(zip(results['ids'], results['documents']))
     except Exception:
         return {}
@@ -154,8 +165,8 @@ def exact_lookup(doc_ids):
 def semantic_search(query, k=3):
     """语义检索，返回 [(doc_id, text, distance), ...]"""
     try:
-        q_emb = model.encode([query]).tolist()
-        results = collection.query(query_embeddings=q_emb, n_results=k)
+        q_emb = _model.encode([query]).tolist()
+        results = _collection.query(query_embeddings=q_emb, n_results=k)
         return list(zip(results['ids'][0], results['documents'][0], results['distances'][0]))
     except Exception:
         return []
@@ -371,22 +382,27 @@ def assemble_prompt(team_a, team_b, sq_a, sq_b, key_a, key_b, fetched, dry_run=F
 {full_context}
 
 ## 分析要求
-请严格按以下结构给出分析:
+请严格按以下三个区域输出（用 `---` 分隔每个区域）:
 
-### 1. 双方实力对比
-从球员质量、年龄结构、大赛经验、阵容深度、俱乐部竞技水平等维度对比。
-注意：**俱乐部竞技水平直接影响球员状态**——在顶级联赛（英超、西甲、欧冠）效力的球员，日常对抗强度远高于低级别联赛。
+### 战术分析
+从球队风格、球员配置和关键对位入手，分析战术博弈、双方优劣势和比赛走向。
+注意：俱乐部竞技水平直接反映球员日常对抗强度。
 
-### 2. 关键对位
-指出 2-3 组决定比赛走向的具体球员对位（如某队边锋 vs 某队边后卫），分析谁占优。
+---
 
-### 3. 战术分析
-基于球队风格、球员配置和关键对位，分析可能的战术博弈和比赛走向。
+### 胜负预测
+给出明确的胜负判断（{team_a} 胜 / {team_b} 胜 / 平局），并用 2-3 句话解释核心理由。
 
-### 4. 预测
-给出 90 分钟内比分预测，并简要说明理由。如有需要可附上加时/点球的判断。
+---
 
-输出语言: 中文。给出明确判断，不做"取决于临场发挥"的模糊表述。"""
+### 比分预测
+列出你认为最可能的 3 个比分（按概率从高到低），格式为：
+1. X-X (理由: ...)
+2. X-X (理由: ...)
+3. X-X (理由: ...)
+如果有加时或点球，在比分后注明。
+
+输出语言: 中文。每个 `---` 分隔符前后不要有其他文字。"""
 
     if dry_run:
         print("\n" + "=" * 70)
@@ -406,13 +422,18 @@ def assemble_prompt(team_a, team_b, sq_a, sq_b, key_a, key_b, fetched, dry_run=F
 def predict(team_a, team_b, dry_run=False):
     """运行完整预测流程"""
 
+    # 懒加载 RAG（首次调用时初始化）
+    _init_rag()
+
     # ---- 加载结构化数据 ----
     with open(SQUADS_FILE, 'r', encoding='utf-8') as f:
         squads = json.load(f)
 
     for team in [team_a, team_b]:
         if team not in squads:
-            print(f"❌ 未找到球队: {team}")
+            msg = f"❌ 未找到球队: {team}"
+            print(msg)
+            return msg
             return
 
     # ---- 四层 RAG 检索 ----

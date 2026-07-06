@@ -64,6 +64,9 @@ python predict.py "Argentina" "France"
 # 仅查看检索结果（调试）
 python predict.py "Argentina" "France" --dry
 ```
+# 启动前端预测（支持手动输入球队名称、勾选球队名称）
+streamlit run streamlit_app.py
+
 
 ## 文件说明
 
