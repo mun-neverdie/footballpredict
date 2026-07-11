@@ -74,9 +74,12 @@ DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
 def call_llm(prompt):
     if LLM_PROVIDER == 'deepseek':
         import openai
+        import httpx
         client = openai.OpenAI(
             api_key=DEEPSEEK_API_KEY,
             base_url=DEEPSEEK_BASE_URL,
+            timeout=httpx.Timeout(120.0, connect=30.0),
+            max_retries=2,
         )
         response = client.chat.completions.create(
             model=LLM_MODEL,
