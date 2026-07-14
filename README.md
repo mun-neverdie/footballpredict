@@ -1,4 +1,23 @@
 # World Cup 2026 RAG Predictor
+# 4进2！
+5 OUR PREDICTS：
+ESP-FRA:
+FRA win 5/5
+1-2 5/5
+0-1 5/5
+1-1 4/5
+2-2 1/5
+
+ENG-ARG：
+ARG win 4/5
+1-2 4/5
+0-1 4/5
+1-1 4/5
+
+ENG win 1/5
+2-1
+1-0
+1-1
 
 # 8进4开盘！
 5 OUR PREDICTS:
